@@ -1,4 +1,5 @@
 # Copyright (c) 2023, NVIDIA CORPORATION.
+from functools import partial
 from pynvjitlink.api import NvJitLinker, NvJitLinkError
 
 import os
@@ -125,6 +126,7 @@ class PatchedLinker(Linker):
             options.extend(additional_flags)
 
         self._linker = NvJitLinker(*options)
+        self.lto = lto
         self.options = options
 
     @property
@@ -243,14 +245,15 @@ def new_patched_linker(
     )
 
 
-def patch_numba_linker():
+def patch_numba_linker(*, lto=False):
     if not _numba_version_ok:
         msg = f"Cannot patch Numba: {_numba_error}"
         raise RuntimeError(msg)
 
+    print(f"Patching Numba linker. LTO: {lto}")
     # Replace the built-in linker that uses the Driver API with our linker that
     # uses nvJitLink
-    Linker.new = new_patched_linker
+    Linker.new = partial(new_patched_linker, lto=lto)
 
     # Add linkable code objects to Numba's top-level API
     cuda.Archive = Archive
